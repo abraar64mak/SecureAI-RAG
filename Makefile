@@ -1,4 +1,4 @@
-.PHONY: install test data sim ollama adaptive serve smoke
+.PHONY: install test data sim ollama adaptive serve smoke latency
 
 install:
 	pip install -r requirements.txt
@@ -26,3 +26,6 @@ ollama:          ## REAL local models (needs `ollama serve`, `ollama pull llama3
 
 serve:
 	uvicorn target.service:app --port 8000
+
+latency:         ## isolated latency of the non-LLM stages (run on an idle machine)
+	python -m eval.latency_bench --out results/latency_bench.csv

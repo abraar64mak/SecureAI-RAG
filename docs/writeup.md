@@ -8,8 +8,8 @@ runbooks seeded with 16 canary secrets, and attack it through the knowledge base
 families: indirect prompt injection, retrieval manipulation, data exfiltration and obfuscated payloads. A four-stage
 defense pipeline (ingestion, retrieval, prompt construction, output) with eleven independently toggleable layers
 reduces overall attack success rate (ASR) from 68.0% to 1.6% under a simulated instruction-following reader, at
-96.5% benign utility, 14.5% of benign queries touched by a guard, and about 2 ms added non-LLM latency. A
-defense-aware adaptive attacker recovers 28.5% ASR, dominated by low-similarity knowledge poisoning (83%) that
+96.5% benign utility, 14.5% of benign queries touched by a guard, and under 1 ms added non-LLM latency. A
+defense-aware adaptive attacker recovers 25.7% ASR, dominated by low-similarity knowledge poisoning (83%) that
 contains no instructions to detect. We map every attack to the OWASP Top 10 for LLM Applications (2025).
 
 ## 1 Introduction
@@ -51,16 +51,17 @@ stripping, guard judge.
 | Config | Inj. | Retr. | Exfil. | Obf. | All | Utility | Intervention |
 |---|---|---|---|---|---|---|---|
 | none | 71.4 | 76.7 | 69.8 | 54.3 | 68.0 [62, 74] | 100.0 | 0.0 |
-| ingestion | 21.9 | 53.3 | 17.7 | 0.0 | 22.9 | 99.5 | 0.0 |
+| ingestion | 21.9 | 51.7 | 17.7 | 0.0 | 22.5 | 99.5 | 0.0 |
 | retrieval | 0.0 | 21.7 | 0.0 | 0.0 | 5.2 | 98.0 | 13.5 |
 | prompt* | 28.1 | 76.7 | 21.4 | 20.4 | 36.1 | 100.0 | 0.0 |
 | output | 37.0 | 75.0 | 0.0 | 0.0 | 27.5 | 98.5 | 1.5 |
 | all | 0.0 | 6.7 | 0.0 | 0.0 | 1.6 [0.6, 4.0] | 96.5 | 14.5 |
-| all minus retrieval | 8.9 | 51.7 | 0.0 | 0.0 | 14.7 | 98.0 | 1.5 |
+| all minus retrieval | 8.9 | 50.0 | 0.0 | 0.0 | 14.3 | 98.0 | 1.5 |
 | all minus ingestion | 0.0 | 21.7 | 0.0 | 0.0 | 5.2 | 96.5 | 15.0 |
 
 \*Prompt-stage rows reflect SimLLM's assumed susceptibility reduction, not a measurement. Added non-LLM latency for `all`
-is 1.9 ms/query and 1.4 ms/doc at ingestion (noisy at this scale; generation excluded).
+is about 0.6 ms/query summed over the guard stages (retrieval 0.36, prompt 0.06, output 0.20) and 1.1 ms/doc at
+ingestion, from an isolated benchmark (`eval/latency_bench.py`); generation is excluded and per-run deltas are noisy.
 
 Retrieval is the most effective stage and the costliest: the mirror detector flags FAQ-style benign pages that quote
 the question. Prompt and output defenses are redundant when the others are present but matter alone (output:
@@ -68,7 +69,7 @@ exfiltration 69.8 to 0.0). Remaining non-adaptive successes are optimised and st
 under the similarity threshold.
 
 **Adaptive attacks** (12 scenarios per operator, best-of-12): soft_injection 100 to 0; low_sim_poison 91.7 to **83.3**;
-redirect_exfil 30.6 to 0; encoded_leak 100 to 30.6; overall 80.6 to **28.5** [18, 43]. The output layer alone does not
+redirect_exfil 30.6 to 0; encoded_leak 100 to 19.4; overall 80.6 to **25.7** [16, 40]. The output layer alone does not
 slow adaptive attackers (80.6): allowlisted open-redirect links and separator-encoded secrets pass it and are stopped only
 upstream. Zero is not safety: the operator set is small and intervals reach 24%.
 

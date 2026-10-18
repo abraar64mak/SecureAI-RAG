@@ -1,0 +1,3 @@
+scorer,n,agreement,cohen_kappa
+rule_success,50,1.0,1.0
+judge_success,50,1.0,1.0

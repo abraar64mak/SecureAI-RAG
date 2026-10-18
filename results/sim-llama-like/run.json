@@ -1,0 +1,32 @@
+{
+ "llm": "sim:llama-like",
+ "seeds": 3,
+ "configs": [
+  "none",
+  "ingestion",
+  "retrieval",
+  "prompt",
+  "output",
+  "all",
+  "all-minus-ingestion",
+  "all-minus-retrieval",
+  "all-minus-prompt",
+  "all-minus-output",
+  "ingestion:strip_hidden",
+  "ingestion:injection_clf",
+  "ingestion:perplexity",
+  "retrieval:outlier",
+  "retrieval:dedup",
+  "prompt:spotlight",
+  "prompt:hierarchy",
+  "output:canary_scan",
+  "output:url_allowlist",
+  "output:strip_images",
+  "output:output_judge"
+ ],
+ "n_attacks": 250,
+ "n_benign": 200,
+ "embedder": "lsa",
+ "sim_threshold": 0.9618642520904541,
+ "ppl_threshold": 10.761109782757147
+}

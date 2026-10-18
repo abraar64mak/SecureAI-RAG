@@ -1,0 +1,21 @@
+{
+ "llm": "sim:qwen-like",
+ "seeds": 3,
+ "configs": [
+  "none",
+  "ingestion",
+  "retrieval",
+  "prompt",
+  "output",
+  "all",
+  "all-minus-ingestion",
+  "all-minus-retrieval",
+  "all-minus-prompt",
+  "all-minus-output"
+ ],
+ "n_attacks": 250,
+ "n_benign": 200,
+ "embedder": "lsa",
+ "sim_threshold": 0.9618642520904541,
+ "ppl_threshold": 10.761109782757147
+}

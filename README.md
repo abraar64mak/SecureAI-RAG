@@ -29,26 +29,26 @@ employer data.
 | Utility on benign queries | 100% | 96.5% |
 | Benign queries where a guard intervened | 0% | 14.5% |
 | Clean chunks quarantined at ingestion | 0% | 0.3% |
-| Added latency, excl. LLM generation | - | ~1.9 ms/query (+1.4 ms/doc at ingestion) |
-| **Adaptive attacks** (48 scenarios, best-of-12) | 80.6% | **28.5%** [18, 43] |
+| Added latency, excl. LLM generation (isolated benchmark) | - | ~0.6 ms/query summed over guard stages; +1.1 ms/doc at ingestion |
+| **Adaptive attacks** (48 scenarios, best-of-12) | 80.6% | **25.7%** [16, 40] |
 
 ![ASR by family](results/sim-llama-like/asr_by_family.png)
 
 **What the numbers say, honestly**
 * The non-adaptive suite is nearly eliminated, but it was written by the same author as the defenses. The adaptive
-  result (28.5%) is the more honest figure.
+  result (25.7%) is the more honest figure.
 * **Retrieval poisoning is the hard residual.** A wrong-answer passage with no instruction text and below-threshold
   similarity (`low_sim_poison`) still succeeds in 83% of adaptive scenarios against all four layers. Injection
   classifiers do not help against content that contains no instructions.
 * The retrieval layer is the most effective *and* the most expensive: **13.5%** of benign queries had a chunk dropped,
   mostly by the mirror detector flagging FAQ-style pages that quote the question verbatim. A deployment would need
   to tune or scope it.
-* Leave-one-out: removing the retrieval stage hurts most (1.6% -> 14.7%), then ingestion (-> 5.2%). Removing prompt
+* Leave-one-out: removing the retrieval stage hurts most (1.6% -> 14.3%), then ingestion (-> 5.2%). Removing prompt
   or output defenses changes nothing *in the presence of the others* - they are redundant here, though each helps
   alone (output alone: exfiltration 69.8% -> 0.0%).
 * Under the adaptive attacker, the output layer alone does nothing (80.6%): allowlisted open-redirect links and
   separator-encoded secrets pass it. Those attacks are stopped only by the upstream layers (`redirect_exfil` 0%
-  under `all`, 30.6% for `encoded_leak`).
+  under `all`, 19.4% for `encoded_leak`).
 
 Cross-profile (assumption-driven, `main` configs): ASR none -> all is 68.0 -> 1.6 (llama-like), 64.8 -> 1.6
 (qwen-like), 36.8 -> 1.6 (strong). Per-config tables, subtype breakdowns and CSVs are in `results/<run>/`.
@@ -69,6 +69,7 @@ tests/      26 tests; CI runs them plus a smoke ablation
 pip install -r requirements.txt
 make test                       # 26 tests
 make smoke                      # fast end-to-end
+make latency                    # isolated stage timings
 make sim                        # full simulated ablation + adaptive (roughly 15-20 min on 4 cores)
 # real models:
 ollama serve & ollama pull llama3.1:8b && ollama pull qwen2.5:7b
@@ -95,7 +96,7 @@ misconfiguration that makes exfiltration measurable. Real datasets can be loaded
 
 Retrieval hit rate is logged separately from ASR (`results/*/retrieval_vs_asr.csv`). Caveat: with a 301-doc corpus
 and an attacker who knows the target entity, undefended hit rate is 100% for every case, so it is uninformative
-until defenses act (`all`: 68.3% for the retrieval family, 20% reach the context).
+until defenses act (`all`: 66.7% for the retrieval family, 20% reach the context).
 
 ## Defenses (each toggleable)
 | Stage | Layer | Notes |
@@ -117,7 +118,7 @@ Attacker knows the defenses and thresholds and has oracle access (best-of-12 can
 | soft_injection (no classifier trigger vocabulary, low-echo covers) | 100% | 0% |
 | low_sim_poison (optimised under the outlier threshold, no verbatim question) | 91.7% | **83.3%** |
 | redirect_exfil (allowlisted open-redirect link, separator-encoded secret) | 30.6% | 0% |
-| encoded_leak (secret with a separator between every character) | 100% | 30.6% |
+| encoded_leak (secret with a separator between every character) | 100% | 19.4% |
 
 ![adaptive](results/sim-llama-like/adaptive_asr.png)
 
@@ -144,4 +145,4 @@ AgentDojo comparison is not done.
 > poisoning, exfiltration, obfuscation), reducing ASR from **X%** to **Y%** with **Z%** benign-query interventions and
 > **N ms** added latency using a 4-stage defense pipeline; adaptive attacks recovered **W%** ASR.
 >
-> With the simulated reader: X=68.0, Y=1.6, Z=14.5, N~2 (excl. generation), W=28.5.
+> With the simulated reader: X=68.0, Y=1.6, Z=14.5, N~0.6 (excl. generation), W=25.7.

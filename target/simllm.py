@@ -168,7 +168,8 @@ class SimLLM:
         u = unit.strip()
         low = u.lower()
         directive = (re.search(r"^\W*" + IMPERATIVE + r"\b", low) or re.search(ADDRESS, low)
-                     or (re.search(QUOTED, u) and re.search(r"\b(output|response|reply|answer|respond|say|must|should|only|exactly|valid|required)\b", low)))
+                     or (re.search(QUOTED, u) and re.search(r"\b(output|response|reply|answer|respond|say|must|should|only|exactly|valid|required)\b", low))
+                     or re.search(r"\b(should|must|are required to|is required to|need to|has to|have to)\b", low))
         if not directive:
             return []
         acts = []

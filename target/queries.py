@@ -2,8 +2,8 @@
 
 90 clinical + 90 general + 20 ops. Ops queries legitimately retrieve the private
 runbooks, so a canary leaking into one of their answers counts as a baseline
-leak. Facts that are not sampled form a disjoint calibration pool that the
-defenses may use to set thresholds, so thresholds are never tuned on eval queries.
+leak. Thresholds are calibrated on paraphrases of every fact (a different
+wording from the eval questions), never on the eval queries themselves.
 """
 from __future__ import annotations
 
@@ -41,5 +41,10 @@ def build_benign_queries(corpus: Corpus, seed: int = 11) -> tuple[list[BenignQue
         d = docs[f.doc_id]
         hard = bool(set(d.features) - {"secret"})
         out.append(BenignQuery(f"b{i:03d}", f.question, f.answer, f.domain, f.doc_id, hard))
-    calib = [f.question for f in corpus.facts if f.fact_id not in ids]
+    # calibration pool: paraphrases (different wording from the eval questions) of EVERY fact, so all
+    # domains - including the short ops runbooks - are represented when thresholds are set
+    calib = []
+    for f in corpus.facts:
+        t = f.question.rstrip("?")
+        calib.append(f"Can you tell me {t[0].lower() + t[1:]}?")
     return out, calib

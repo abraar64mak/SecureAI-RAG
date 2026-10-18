@@ -35,7 +35,7 @@ def main(argv=None):
     ap.add_argument("--llm", default="sim:llama-like")
     ap.add_argument("--seeds", type=int, default=3)
     ap.add_argument("--out", default=None)
-    ap.add_argument("--k", type=int, default=8)
+    ap.add_argument("--k", type=int, default=12)
     ap.add_argument("--embedder", default=None)
     a = ap.parse_args(argv)
     out = Path(a.out or f"results/{a.llm.replace(':', '-')}")

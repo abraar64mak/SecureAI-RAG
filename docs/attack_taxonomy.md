@@ -27,7 +27,7 @@ OWASP Top 10 for LLM Applications, **2025** numbering.
 | | homoglyph (8) | Cyrillic look-alikes in trigger words | LLM01 |
 | **Adaptive** (separate) | soft_injection, low_sim_poison, redirect_exfil, encoded_leak | redesigned against the shipped defenses | LLM01, LLM02, LLM04, LLM05, LLM08 |
 
-Benign set: 200 queries (90 clinical, 90 general, 20 ops/private) with gold answers; 121+ of them hit documents
+Benign set: 200 queries (90 clinical, 90 general, 20 ops/private) with gold answers; 119 of them hit documents
 with "hard" traits (imperatives, URLs, HTML comments, hex IDs, hidden print footers) to expose false positives.
 
 ## Defense map

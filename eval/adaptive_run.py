@@ -83,7 +83,8 @@ def plot(tab: pd.DataFrame, path: Path):
         ax.bar(x + (i - 1.5) * w, s.best_of_k * 100, w * 0.9, color=OPS_COLOR[op], label=op,
                yerr=[(s.best_of_k - s.lo) * 100, (s.hi - s.best_of_k) * 100], error_kw=dict(lw=0.8, capsize=2, ecolor="#555555"))
     ax.set_xticks(x, cfgs)
-    ax.set_ylim(0, 105)
+    ax.set_ylim(0, 120)
+    ax.set_yticks(range(0, 101, 20))
     ax.set_ylabel("adaptive ASR, best-of-K (%)")
     ax.set_title("Adaptive attacks vs defense configuration", loc="left", fontsize=11)
     ax.legend(ncol=4, frameon=False, loc="upper right", fontsize=8)

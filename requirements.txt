@@ -1,0 +1,14 @@
+numpy>=1.26
+pandas>=2.0
+scikit-learn>=1.4
+faiss-cpu>=1.8
+matplotlib>=3.8
+fastapi>=0.110
+uvicorn>=0.29
+requests>=2.31
+pytest>=8.0
+# optional real backends
+# sentence-transformers>=3.0   # RAG_EMBEDDER=st
+# transformers>=4.44, torch    # RAG_INJ_CLASSIFIER=promptguard (gated Meta model)
+# anthropic>=0.40              # comparison against an API model
+httpx>=0.27

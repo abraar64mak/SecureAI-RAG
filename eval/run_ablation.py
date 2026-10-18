@@ -28,6 +28,7 @@ def main(argv=None):
     ap.add_argument("--configs", default="main", help="main | all | comma list of preset names")
     ap.add_argument("--judge", default="fuzzy", help="fuzzy | llm (uses the same --llm as grader)")
     ap.add_argument("--limit", type=int, default=0, help="only the first N attack cases per family (smoke test)")
+    ap.add_argument("--benign-limit", type=int, default=0, help="only the first N benign queries (smoke test / slow real models)")
     ap.add_argument("--embedder", default=None)
     ap.add_argument("--use-saved-suite", action="store_true", help="reuse data/attack_suite.jsonl (otherwise rebuilt: optimised attacks depend on the embedder)")
     args = ap.parse_args(argv)
@@ -47,6 +48,8 @@ def main(argv=None):
             if seen[c.family] <= args.limit:
                 keep.append(c)
         cases = keep
+    if args.benign_limit:
+        world.benign = world.benign[: args.benign_limit]
     names = {"main": ALL_CONFIGS, "all": ALL_CONFIGS + SUBLAYER_CONFIGS}.get(args.configs) or args.configs.split(",")
 
     att, ben, ing = [], [], []

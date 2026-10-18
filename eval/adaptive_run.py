@@ -37,16 +37,19 @@ def main(argv=None):
     ap.add_argument("--out", default=None)
     ap.add_argument("--k", type=int, default=12)
     ap.add_argument("--embedder", default=None)
+    ap.add_argument("--configs", default=",".join(ADAPT_CONFIGS), help="comma list; e.g. none,all")
+    ap.add_argument("--n-per-op", type=int, default=12, help="scenarios per operator (lower for slow real models)")
     a = ap.parse_args(argv)
+    configs = a.configs.split(",")
     out = Path(a.out or f"results/{a.llm.replace(':', '-')}")
     out.mkdir(parents=True, exist_ok=True)
     world = World(embedder=a.embedder)
-    cases = generate(world, random.Random(99), k=a.k)
+    cases = generate(world, random.Random(99), n_per_op=a.n_per_op, k=a.k)
     (out / "adaptive_cases.jsonl").write_text("\n".join(json.dumps(c.to_dict(), ensure_ascii=False) for c in cases))
     frames = []
     for seed in range(a.seeds):
         llm = get_llm(a.llm, seed)
-        for name in ADAPT_CONFIGS:
+        for name in configs:
             d = run_attacks(world, preset(name), llm, cases, seed=seed)
             frames.append(d)
             print(f"seed={seed} {name:<10} per-candidate ASR={d.rule_success.mean():.3f}", flush=True)
@@ -63,7 +66,7 @@ def main(argv=None):
     tab = pd.DataFrame(rows)
     tab.to_csv(out / "adaptive_summary.csv", index=False)
     plot(tab, out / "adaptive_asr.png")
-    wide = tab.assign(cell=tab.best_of_k.map(pct)).pivot(index="config", columns="operator", values="cell").reindex(ADAPT_CONFIGS).reset_index()
+    wide = tab.assign(cell=tab.best_of_k.map(pct)).pivot(index="config", columns="operator", values="cell").reindex(configs).reset_index()
     (out / "adaptive_results.md").write_text(
         f"# Adaptive attacks - `{a.llm}`\n\nBest-of-{a.k} per scenario, {a.seeds} seed(s). ASR = share of scenarios where any candidate succeeded.\n\n"
         + md_table(wide) + "\n![adaptive](adaptive_asr.png)\n")

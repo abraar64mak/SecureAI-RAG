@@ -70,10 +70,6 @@ results/   CSVs and figures
 tests/     26 tests
 ```
 
-## Limitations
-
-Results use the simulated reader above, not a live model. The corpus is small, synthetic and template-generated, so undefended poisoning always reaches the top five and utility is an optimistic ceiling. Attacks and defenses were written by the same author; the injection classifier was given extra hard negatives after it flagged the private runbooks. The adaptive attacker uses four operators and a small budget, so zero success for an operator is weak evidence. The judge was checked against 50 labels written by an AI assistant, not by a person, on clean simulated output (agreement 50/50), which makes that check a smoke test. Output scanning does not replace access control. Not run: Ollama, sentence-transformers, Meta Prompt Guard, garak, promptfoo, BIPIA, AgentDojo. Full discussion in `docs/limitations.md`.
-
 ## License
 
 MIT.

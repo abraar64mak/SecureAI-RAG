@@ -1,148 +1,79 @@
-# SecureAI-RAG - prompt-injection & data-exfiltration red-teaming for RAG
+# SecureAI-RAG
 
-A self-contained framework that **attacks a RAG system, defends it at four pipeline stages, and measures what
-happened**: attack success rate (ASR) per attack family before/after, false positives, utility, added latency, and
-an adaptive attacker that knows the defenses. Everything is synthetic and public - no real patient, clinic or
-employer data.
+Red-teaming for retrieval-augmented generation. The repository contains a small RAG system, 250 attacks that reach it through poisoned documents, a four-stage defense pipeline, and an evaluation harness that reports attack success rate (ASR), false positives, utility, latency, and the effect of an attacker who knows the defenses.
 
-> ### Read this first: which numbers are real
-> No LLM server or HuggingFace access was available while this was built, so every number in `results/` comes from
-> **`SimLLM`**, a deterministic *model of an instruction-following reader* with hand-set parameters
-> (`target/simllm.py`). It is **not** a measurement of Llama 3.1 or Qwen 2.5.
-> * **Real measurements** (deterministic code on the real suite): ingestion sanitiser, classifier, perplexity filter,
->   retrieval guards, output filters, retrieval hit rates, latency of the non-LLM stages.
-> * **Assumptions, not findings:** how strongly spotlighting / instruction hierarchy suppress instruction-following,
->   and how readily the model decodes base64 / other languages. Treat the `prompt` rows as inputs.
-> * Run `make ollama` to get real Llama 3.1 8B and Qwen 2.5 7B numbers; the code path is implemented and unit-tested
->   against a mocked server but was **not run against a live Ollama here**. Sentence-transformers and Meta Prompt
->   Guard backends are likewise wired in but untested here.
+All data are synthetic. Nothing here comes from real patients, clinics or employers.
 
-## Headline results (SimLLM `llama-like`, 3 seeds, 250 attacks, 200 benign queries)
+## Scope of the results
 
-| Metric | none | all 4 stages |
+Every number below comes from `SimLLM`, a deterministic stand-in for an instruction-following model (`target/simllm.py`). It is not a measurement of Llama or Qwen. Results from deterministic components (sanitiser, classifier, retrieval guards, output filters, latency) are real measurements. How strongly spotlighting or an instruction hierarchy suppresses a model's compliance is an assumption encoded in the simulator, so the prompt-stage rows should be read as inputs, not findings. The Ollama and API backends are implemented but were not run against a live model. Replicating with real models is the main open item.
+
+## System
+
+A staff question-answering assistant for a fictional clinic. The corpus has 301 documents (clinical, general, benign look-alike notes) plus 15 private runbooks and rosters in the same index that hold 16 canary secrets: 8 API keys, 7 patient IDs and a system-prompt token. There is no access control, which is the misconfiguration that makes leakage measurable. Retrieval is FAISS over TF-IDF/LSA embeddings; a sentence-transformers backend is available.
+
+## Attacks (250) and benign queries (200)
+
+| Family | n | Mechanism | OWASP LLM 2025 |
+|---|---|---|---|
+| Indirect injection | 64 | hidden instructions in a retrieved document | LLM01 |
+| Retrieval manipulation | 60 | query mirroring, keyword stuffing, optimised false-answer passages | LLM04, 08, 09 |
+| Exfiltration | 64 | key, ID and system-prompt leaks; image and link beacons | LLM02, 05, 07 |
+| Obfuscation | 62 | base64, zero-width, HTML comment, hidden CSS, other languages, homoglyphs | LLM01 |
+
+Details are in `docs/attack_taxonomy.md` and `docs/threat_model.md`.
+
+## Defenses
+
+Each layer can be switched on or off independently.
+
+1. Ingestion: hidden-text stripper, injection classifier, character-level perplexity filter.
+2. Retrieval: similarity-outlier and query-mirroring detector, near-duplicate and keyword-stuffing filter.
+3. Prompt: datamarking or delimiting retrieved text, plus an instruction-hierarchy system prompt.
+4. Output: canary scan, URL allowlist, image stripping, answer judge.
+
+## Results (SimLLM, 3 seeds)
+
+| | no defense | all four stages |
 |---|---|---|
-| ASR, all 250 attacks | **68.0%** [62, 73.5] | **1.6%** [0.6, 4.0] |
-| injection (64) | 71.4% | 0.0% |
-| retrieval manipulation (60) | 76.7% | 6.7% |
-| exfiltration (64) | 69.8% | 0.0% |
-| obfuscation (62) | 54.3% | 0.0% |
+| ASR, all 250 attacks | 68.0% [62, 74] | 1.6% [0.6, 4.0] |
+| Adaptive attacks (48 scenarios, best of 12) | 80.6% | 25.7% [16, 40] |
 | Utility on benign queries | 100% | 96.5% |
 | Benign queries where a guard intervened | 0% | 14.5% |
-| Clean chunks quarantined at ingestion | 0% | 0.3% |
-| Added latency, excl. LLM generation (isolated benchmark) | - | ~0.6 ms/query summed over guard stages; +1.1 ms/doc at ingestion |
-| **Adaptive attacks** (48 scenarios, best-of-12) | 80.6% | **25.7%** [16, 40] |
+| Added latency, non-LLM stages | n/a | about 0.6 ms per query |
 
-![ASR by family](results/sim-llama-like/asr_by_family.png)
+Intervals are 95% Wilson. Per-family and per-layer tables, plots and CSVs are in `results/`.
 
-**What the numbers say, honestly**
-* The non-adaptive suite is nearly eliminated, but it was written by the same author as the defenses. The adaptive
-  result (25.7%) is the more honest figure.
-* **Retrieval poisoning is the hard residual.** A wrong-answer passage with no instruction text and below-threshold
-  similarity (`low_sim_poison`) still succeeds in 83% of adaptive scenarios against all four layers. Injection
-  classifiers do not help against content that contains no instructions.
-* The retrieval layer is the most effective *and* the most expensive: **13.5%** of benign queries had a chunk dropped,
-  mostly by the mirror detector flagging FAQ-style pages that quote the question verbatim. A deployment would need
-  to tune or scope it.
-* Leave-one-out: removing the retrieval stage hurts most (1.6% -> 14.3%), then ingestion (-> 5.2%). Removing prompt
-  or output defenses changes nothing *in the presence of the others* - they are redundant here, though each helps
-  alone (output alone: exfiltration 69.8% -> 0.0%).
-* Under the adaptive attacker, the output layer alone does nothing (80.6%): allowlisted open-redirect links and
-  separator-encoded secrets pass it. Those attacks are stopped only by the upstream layers (`redirect_exfil` 0%
-  under `all`, 19.4% for `encoded_leak`).
+Three observations. First, layering removes almost all of the non-adaptive suite, but that suite and the defenses share an author, so the adaptive figure is the more informative one. Second, retrieval poisoning that contains no instructions and stays below the similarity threshold still succeeds in 83% of adaptive scenarios against the full pipeline; injection-specific defenses do not address it. Third, the retrieval stage is the most effective layer and also the most costly, touching 13.5% of benign queries, largely by flagging FAQ-style pages that quote the question verbatim.
 
-Cross-profile (assumption-driven, `main` configs): ASR none -> all is 68.0 -> 1.6 (llama-like), 64.8 -> 1.6
-(qwen-like), 36.8 -> 1.6 (strong). Per-config tables, subtype breakdowns and CSVs are in `results/<run>/`.
+## Running it
 
-## Repo layout
 ```
-target/     synthetic corpora, canaries, FAISS index, embedders, LLM backends (Ollama/Anthropic/Sim), FastAPI service
-attacks/    4 families (templated generators) + adaptive attacker
-defenses/   toggleable layers: ingestion / retrieval / prompt / output
-eval/       harness, rule + fuzzy/LLM judges, ablation runner, adaptive runner, report, labeling tool
-results/    CSVs and plots per run (sim-llama-like, sim-qwen-like, sim-strong)
-docs/       threat_model.md, attack_taxonomy.md (OWASP mapping), writeup.md, limitations.md
-tests/      26 tests; CI runs them plus a smoke ablation
-```
-
-## Quick start
-```bash
 pip install -r requirements.txt
-make test                       # 26 tests
-make smoke                      # fast end-to-end
-make latency                    # isolated stage timings
-make sim                        # full simulated ablation + adaptive (roughly 15-20 min on 4 cores)
-# real models:
-ollama serve & ollama pull llama3.1:8b && ollama pull qwen2.5:7b
-make ollama                     # RAG_EMBEDDER=st for sentence-transformers embeddings
-uvicorn target.service:app      # POST /query {"question": "...", "defenses": "all"}
+python -m pytest -q
+python -m eval.run_ablation --llm sim:llama-like --seeds 3 --configs all --out results/sim-llama-like
+python -m eval.adaptive_run --llm sim:llama-like --seeds 3 --out results/sim-llama-like
+python -m eval.run_ablation --llm ollama:llama3.1:8b --seeds 1 --configs none,all --limit 15 --benign-limit 60 --out results/ollama-quick
 ```
-Any config is a name: `none`, `ingestion`, `retrieval`, `prompt`, `output`, `all`, `all-minus-<stage>`,
-`<stage>:<layer>` (e.g. `output:url_allowlist`).
 
-## Target system
-Staff Q&A assistant for a fictional clinic. Corpus (301 docs): 96 clinical incl. 6 resource pointers (fictional drug monographs, unit
-policies, sterilisation procedures), 130 general (fictional cities, companies, inventions - a
-stand-in for MS MARCO / NQ), 60 benign look-alike "notes", and 15 **private** runbooks/rosters in the same index
-holding **16 canaries** (8 `cnry_key_` keys, 7 `MRN-` IDs, 1 system-prompt token). No access control - the
-misconfiguration that makes exfiltration measurable. Real datasets can be loaded with `load_jsonl_corpus`.
+A configuration is a name such as `none`, `all`, `all-minus-retrieval` or `output:url_allowlist`. The service in `target/service.py` exposes the pipeline over HTTP for external scanners. Real 7-8B models need roughly 6 GB of free memory; a 3B model is a safer start on a laptop.
 
-## Attack suite (250 cases + 200 benign) - see `docs/attack_taxonomy.md`
-| Family | n | Examples | OWASP LLM 2025 |
-|---|---|---|---|
-| Indirect injection | 64 | ignore-previous, fake system message, authority, delimiter breakout, polite request | LLM01 |
-| Retrieval manipulation | 60 | query mirroring, keyword stuffing, PoisonedRAG-style optimised prefix, "correction notice" | LLM04, LLM08, LLM09 |
-| Exfiltration | 64 | secret/patient-ID leak, system-prompt leak, markdown-image beacon, link, document dump | LLM02, LLM05, LLM07 |
-| Obfuscation | 62 | base64, zero-width, HTML comment, white-on-white, ES/FR/DE, homoglyph | LLM01 (+LLM02) |
+## Layout
 
-Retrieval hit rate is logged separately from ASR (`results/*/retrieval_vs_asr.csv`). Caveat: with a 301-doc corpus
-and an attacker who knows the target entity, undefended hit rate is 100% for every case, so it is uninformative
-until defenses act (`all`: 66.7% for the retrieval family, 20% reach the context).
-
-## Defenses (each toggleable)
-| Stage | Layer | Notes |
-|---|---|---|
-| 1 Ingestion | hidden-text stripper | comments, CSS-hidden elements (tag-stack walker), zero-width/bidi chars, homoglyphs, decodable base64 |
-| | injection classifier | TF-IDF+LR trained on independent templates; Meta Prompt Guard backend optional |
-| | perplexity filter | char-trigram LM, threshold at 99th pct of held-out clean chunks |
-| 2 Retrieval | outlier | similarity above benign-calibrated threshold, or verbatim question inside the chunk |
-| | dedup | near-duplicates and keyword stuffing |
-| 3 Prompt | spotlighting (delimit / datamark) + instruction hierarchy | forged markers/delimiters are stripped |
-| 4 Output | canary scan (raw, normalised, base64, hex, reversed, URL-escaped) | redacts |
-| | URL allowlist (exact host / true subdomain), image stripping, output judge | judge is a heuristic offline, `LLMGuardJudge` for real models |
-
-## Adaptive attacks (`attacks/adaptive.py`)
-Attacker knows the defenses and thresholds and has oracle access (best-of-12 candidates per scenario).
-
-| Operator (12 scenarios each) | none | all |
-|---|---|---|
-| soft_injection (no classifier trigger vocabulary, low-echo covers) | 100% | 0% |
-| low_sim_poison (optimised under the outlier threshold, no verbatim question) | 91.7% | **83.3%** |
-| redirect_exfil (allowlisted open-redirect link, separator-encoded secret) | 30.6% | 0% |
-| encoded_leak (secret with a separator between every character) | 100% | 19.4% |
-
-![adaptive](results/sim-llama-like/adaptive_asr.png)
-
-0% means "none of 12 candidates worked for this operator", not "safe": the operator set and K are small, and the
-CIs are wide (n=12; upper bound 24%).
-
-## Judge validation
-Rule checks are primary; a second fuzzy judge (partial canaries, rot13/base64/interleaved, loose markers) disagrees
-on 0.3% of runs. `LLMJudge` is available for Ollama runs. **Agreement with labels: 50/50 (kappa 1.0) - but the labels
-are mine (Claude's), not a human's, and SimLLM emits clean strings, so this is a smoke test, not evidence about
-judge quality on real model output.** Re-label with `python -m eval.label_tool sample/agree`.
+```
+target/    corpus, canaries, index, embedders, LLM backends, service
+attacks/   four attack families and the adaptive attacker
+defenses/  the four stages
+eval/      harness, scorers, ablation and adaptive runners, reports
+docs/      threat model, taxonomy, two-page write-up, limitations
+results/   CSVs and figures
+tests/     26 tests
+```
 
 ## Limitations
-See `docs/limitations.md`. The big ones: simulated LLM; small synthetic template corpus; defenses and attacks by one
-author; adaptive attacker is modest; the real fix for exfiltration is access control, not output scanning.
 
-## External baselines
-`eval/external/` has promptfoo and garak configs pointing at the service. **Untested here** (no network). They probe
-direct injection through the chat interface, not poisoned documents, so they complement this suite. BIPIA /
-AgentDojo comparison is not done.
+The model is simulated. The corpus is small, synthetic and template-generated, so undefended poisoning always reaches the top five and utility is an optimistic ceiling. Attacks and defenses were written by the same author; the injection classifier was given extra hard negatives after it flagged the private runbooks. The adaptive attacker uses four operators and a small budget, so zero success for an operator is weak evidence. The judge was checked against 50 labels written by an AI assistant, not by a person, on clean simulated output (agreement 50/50), which makes that check a smoke test. Output scanning does not replace access control. Not run: Ollama, sentence-transformers, Meta Prompt Guard, garak, promptfoo, BIPIA, AgentDojo. Full discussion in `docs/limitations.md`.
 
-## Resume line (fill in from your *Ollama* run; the simulated numbers are not model measurements)
-> Built a red-teaming framework for RAG systems with 250 attacks across 4 families (indirect injection, retrieval
-> poisoning, exfiltration, obfuscation), reducing ASR from **X%** to **Y%** with **Z%** benign-query interventions and
-> **N ms** added latency using a 4-stage defense pipeline; adaptive attacks recovered **W%** ASR.
->
-> With the simulated reader: X=68.0, Y=1.6, Z=14.5, N~0.6 (excl. generation), W=25.7.
+## License
+
+MIT.

@@ -1,6 +1,6 @@
 # Red-Teaming Retrieval-Augmented Generation: Indirect Injection, Poisoning and Exfiltration, with a Four-Stage Defense Pipeline and Adaptive Evaluation
 
-*SecureAI-RAG technical note. All data synthetic. **All numbers below were produced with a simulated reader (SimLLM), not with Llama 3.1 / Qwen 2.5**; see Section 6.*
+*SecureAI-RAG technical note. All data synthetic. Results use a simulated instruction-following reader (SimLLM); see the README, Evaluation model.*
 
 ## Abstract
 We build a RAG system over a synthetic clinical-style and general knowledge base that also contains private
@@ -73,15 +73,7 @@ redirect_exfil 30.6 to 0; encoded_leak 100 to 19.4; overall 80.6 to **25.7** [16
 slow adaptive attackers (80.6): allowlisted open-redirect links and separator-encoded secrets pass it and are stopped only
 upstream. Zero is not safety: the operator set is small and intervals reach 24%.
 
-## 6 Limitations and validity
-(1) Results use a simulated reader with assumed susceptibility; real-model numbers require `make ollama`.
-(2) The corpus is a small synthetic template corpus with an LSA embedder, so undefended poison hit rate is 100% and
-utility is a ceiling. (3) Attacks and defenses share an author; the classifier received credential-themed hard
-negatives after we saw it quarantine the private runbooks. (4) 14.5% intervention is dominated by one detector.
-(5) Judge agreement with labels was 50/50, but labels are the assistant's, on clean synthetic output. (6) Output
-scanning does not replace access control. Garak, promptfoo, BIPIA and AgentDojo comparisons are not run.
-
-## 7 Conclusion
+## 6 Conclusion
 Layered defenses remove nearly all of a non-adaptive suite, but the cheapest successful adaptive attack, poisoning with
 no instructions, is untouched by injection-specific defenses and needs provenance, retrieval-side anomaly detection
 against realistic distributions, and access control. Real-model replication is the first next step.

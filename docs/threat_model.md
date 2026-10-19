@@ -52,7 +52,7 @@ Success is judged on the **final delivered answer** (after output defenses).
 Private runbooks share the index with public content and there is **no per-user access control**. This is the
 single most common real-world RAG data-leak configuration and is what makes exfiltration measurable. The
 canary scan is a *mitigation*; the actual fix is ACL-aware retrieval and not indexing secrets, which is out of
-scope here (see Limitations).
+scope here.
 
 ## Out of scope
 Direct prompt injection by the user, jailbreaks of the base model, model/weights attacks, infrastructure

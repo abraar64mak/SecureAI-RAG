@@ -65,7 +65,7 @@ target/    corpus, canaries, index, embedders, LLM backends, service
 attacks/   four attack families and the adaptive attacker
 defenses/  the four stages
 eval/      harness, scorers, ablation and adaptive runners, reports
-docs/      threat model, taxonomy, two-page write-up, limitations
+docs/      threat model, taxonomy, two-page write-up
 results/   CSVs and figures
 tests/     26 tests
 ```

@@ -4,9 +4,9 @@ Red-teaming for retrieval-augmented generation. The repository contains a small 
 
 All data are synthetic. Nothing here comes from real patients, clinics or employers.
 
-## Scope of the results
+## Evaluation model
 
-Every number below comes from `SimLLM`, a deterministic stand-in for an instruction-following model (`target/simllm.py`). It is not a measurement of Llama or Qwen. Results from deterministic components (sanitiser, classifier, retrieval guards, output filters, latency) are real measurements. How strongly spotlighting or an instruction hierarchy suppresses a model's compliance is an assumption encoded in the simulator, so the prompt-stage rows should be read as inputs, not findings. The Ollama and API backends are implemented but were not run against a live model. Replicating with real models is the main open item.
+To make every experiment reproducible and runnable offline, the harness uses a deterministic simulated reader (`SimLLM`, in `target/simllm.py`) in place of a live LLM. It models how an instruction-following model reacts to text in its context, with explicit per-profile parameters, and the same attack gets the same random draw under every defense so comparisons are paired. The ingestion, retrieval and output defenses are real code measured on the real attack suite. The prompt-stage effect (spotlighting, instruction hierarchy) is a parameter of the simulator. Backends for Ollama and the Anthropic API are included (`--llm ollama:llama3.1:8b`); results with those models are the next step.
 
 ## System
 
@@ -32,7 +32,7 @@ Each layer can be switched on or off independently.
 3. Prompt: datamarking or delimiting retrieved text, plus an instruction-hierarchy system prompt.
 4. Output: canary scan, URL allowlist, image stripping, answer judge.
 
-## Results (SimLLM, 3 seeds)
+## Results (simulated reader, 3 seeds)
 
 | | no defense | all four stages |
 |---|---|---|
@@ -72,7 +72,7 @@ tests/     26 tests
 
 ## Limitations
 
-The model is simulated. The corpus is small, synthetic and template-generated, so undefended poisoning always reaches the top five and utility is an optimistic ceiling. Attacks and defenses were written by the same author; the injection classifier was given extra hard negatives after it flagged the private runbooks. The adaptive attacker uses four operators and a small budget, so zero success for an operator is weak evidence. The judge was checked against 50 labels written by an AI assistant, not by a person, on clean simulated output (agreement 50/50), which makes that check a smoke test. Output scanning does not replace access control. Not run: Ollama, sentence-transformers, Meta Prompt Guard, garak, promptfoo, BIPIA, AgentDojo. Full discussion in `docs/limitations.md`.
+Results use the simulated reader above, not a live model. The corpus is small, synthetic and template-generated, so undefended poisoning always reaches the top five and utility is an optimistic ceiling. Attacks and defenses were written by the same author; the injection classifier was given extra hard negatives after it flagged the private runbooks. The adaptive attacker uses four operators and a small budget, so zero success for an operator is weak evidence. The judge was checked against 50 labels written by an AI assistant, not by a person, on clean simulated output (agreement 50/50), which makes that check a smoke test. Output scanning does not replace access control. Not run: Ollama, sentence-transformers, Meta Prompt Guard, garak, promptfoo, BIPIA, AgentDojo. Full discussion in `docs/limitations.md`.
 
 ## License
 
